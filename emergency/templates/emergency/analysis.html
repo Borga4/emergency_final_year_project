@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Analysis Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4cc9f0;
+            --danger-color: #f72585;
+            --warning-color: #f8961e;
+            --success-color: #43aa8b;
+            --dark-color: #212529;
+            --light-color: #f8f9fa;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--dark-color);
+        }
+        
+        .dashboard-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .dashboard-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+            transform: rotate(30deg);
+        }
+        
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            background-color: white;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+            height: 100%;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        }
+        
+        .card-header {
+            background-color: transparent;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            font-weight: 600;
+            color: var(--dark-color);
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-body {
+            padding: 1rem;
+        }
+        
+        .chart-container {
+            width: 100%;
+            height: 250px;
+        }
+        
+        #map {
+            height: 350px;
+            border-radius: 8px;
+            z-index: 1;
+        }
+        
+        .fullscreen-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: white;
+            z-index: 2000;
+            overflow: hidden;
+        }
+        
+        .fullscreen-header {
+            padding: 0.75rem 1rem;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .fullscreen-body {
+            height: calc(100vh - 56px);
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
+            height: 100%;
+        }
+        
+        .stat-card .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+            color: var(--primary-color);
+        }
+        
+        .stat-card .stat-label {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+        
+        .badge-pill {
+            padding: 0.35em 0.65em;
+            font-weight: 500;
+            font-size: 0.75rem;
+        }
+        
+        .filter-section {
+            background: white;
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        
+        .animate-delay-1 {
+            animation-delay: 0.2s;
+        }
+        
+        .animate-delay-2 {
+            animation-delay: 0.4s;
+        }
+        
+        .animate-delay-3 {
+            animation-delay: 0.6s;
+        }
+        
+        .animate-delay-4 {
+            animation-delay: 0.8s;
+        }
+        
+        .glow {
+            text-shadow: 0 0 10px rgba(255,255,255,0.8);
+        }
+        
+        .leaflet-popup-content {
+            font-size: 0.9rem;
+        }
+        
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-3">
+        <div class="dashboard-header animate__animated animate__fadeIn">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1 glow">Emergency Analysis Dashboard</h1>
+                    <p class="mb-0 small">Real-time monitoring and analytics for emergency response</p>
+                </div>
+                <div>
+                    <span class="badge bg-light text-dark rounded-pill">
+                        <i class="bi bi-activity me-1"></i> Live Data
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Filters Section -->
+        <div class="filter-section animate__animated animate__fadeIn">
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">Year</label>
+                    <select class="form-select form-select-sm" id="yearFilter">
+                        <option>2023</option>
+                        <option selected>2022</option>
+                        <option>2021</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">Case Type</label>
+                    <select class="form-select form-select-sm" id="caseTypeFilter">
+                        <option selected>All Types</option>
+                        {% for label in case_labels %}
+                        <option>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">Status</label>
+                    <select class="form-select form-select-sm" id="statusFilter">
+                        <option selected>All Statuses</option>
+                        <option>Resolved</option>
+                        <option>Pending</option>
+                        <option>In Progress</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-sm btn-primary w-100" id="applyFilters">
+                        <i class="bi bi-funnel me-1"></i> Apply Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row g-3">
+            <div class="col-md-3 animate__animated animate__fadeInLeft animate-delay-1">
+                <div class="stat-card">
+                    <div class="stat-label">Total Cases</div>
+                    <div class="stat-value" id="totalCases">0</div>
+                    <div class="text-muted small">+12% from last month</div>
+                </div>
+            </div>
+            <div class="col-md-3 animate__animated animate__fadeInLeft animate-delay-2">
+                <div class="stat-card">
+                    <div class="stat-label">Avg Resolution Time</div>
+                    <div class="stat-value" id="avgResolution">0</div>
+                    <div class="text-muted small">days</div>
+                </div>
+            </div>
+            <div class="col-md-3 animate__animated animate__fadeInLeft animate-delay-3">
+                <div class="stat-card">
+                    <div class="stat-label">Resolved Cases</div>
+                    <div class="stat-value" id="resolvedCases">0</div>
+                    <div class="text-muted small">87% success rate</div>
+                </div>
+            </div>
+            <div class="col-md-3 animate__animated animate__fadeInLeft animate-delay-4">
+                <div class="stat-card">
+                    <div class="stat-label">Active Cases</div>
+                    <div class="stat-value" id="activeCases">0</div>
+                    <div class="text-muted small">Requiring attention</div>
+                </div>
+            </div>
+        </div>
+        <br>
+        
+        <div class="row g-3">
+            <div class="col-md-6 animate__animated animate__fadeInUp">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <span>Case Distribution</span>
+                        <div class="badge bg-primary rounded-pill">Live</div>
+                    </div>
+                    <div class="card-body">
+                        <div id="caseDistributionChart" class="chart-container"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 animate__animated animate__fadeInUp animate-delay-1">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <span>Case Trends Over Time</span>
+                        <div class="badge bg-info rounded-pill">Monthly</div>
+                    </div>
+                    <div class="card-body">
+                        <div id="caseTrendChart" class="chart-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br>
+        
+        <div class="row g-3">
+            <div class="col-md-6 animate__animated animate__fadeInUp animate-delay-2">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <span>Resolution Rate</span>
+                        <div class="badge bg-success rounded-pill">%</div>
+                    </div>
+                    <div class="card-body">
+                        <div id="resolutionRateChart" class="chart-container"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 animate__animated animate__fadeInUp animate-delay-3">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <span>Resolution Time</span>
+                        <div class="badge bg-warning text-dark rounded-pill">Days</div>
+                    </div>
+                    <div class="card-body">
+                        <div id="resolutionTimeChart" class="chart-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br>
+        
+        <div class="row">
+            <div class="col-md-12 animate__animated animate__fadeInUp animate-delay-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Geographic Distribution</span>
+                        <div>
+                            <button id="openFullscreen" class="btn btn-sm btn-primary">
+                                <i class="bi bi-fullscreen me-1"></i> Fullscreen
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <br>
+    
+    <div id="fullscreenOverlay" class="fullscreen-overlay">
+        <div class="fullscreen-header">
+            <h5 class="m-0">Geographic Distribution</h5>
+            <button id="exitFullscreen" class="btn btn-sm btn-danger">
+                <i class="bi bi-x-lg me-1"></i> Exit Fullscreen
+            </button>
+        </div>
+        <div class="fullscreen-body">
+            <div id="fullscreenMap" style="width: 100%; height: 100%;"></div>
+        </div>
+    </div>
+    
+    <!-- Data passed from backend -->
+    {{ case_labels|json_script:"case-labels" }}
+    {{ case_counts|json_script:"case-counts" }}
+    {{ months|json_script:"months" }}
+    {{ case_trend|json_script:"case-trend" }}
+    {{ resolution_rate|json_script:"resolution-rate" }}
+    {{ avg_resolution_time|json_script:"avg-resolution-time" }}
+    {{ geo_cases|json_script:"geo-cases" }}
+    
+    <script>
+        // Parse data from Django template
+        const caseLabels = JSON.parse(document.getElementById('case-labels').textContent);
+        const caseCounts = JSON.parse(document.getElementById('case-counts').textContent);
+        const months = JSON.parse(document.getElementById('months').textContent);
+        const caseTrend = JSON.parse(document.getElementById('case-trend').textContent);
+        const resolutionRate = JSON.parse(document.getElementById('resolution-rate').textContent);
+        const avgResolutionTime = JSON.parse(document.getElementById('avg-resolution-time').textContent);
+        const geoCases = JSON.parse(document.getElementById('geo-cases').textContent);
+        
+        // Calculate summary statistics
+        const totalCases = caseCounts.reduce((a, b) => a + b, 0);
+        const avgResolution = (avgResolutionTime.reduce((a, b) => a + b, 0) / avgResolutionTime.length).toFixed(1);
+        const resolvedCases = Math.round(totalCases * (resolutionRate.reduce((a, b) => a + b, 0) / resolutionRate.length / 100));
+        const activeCases = totalCases - resolvedCases;
+        
+        // Update summary cards with animation
+        function animateValue(id, start, end, duration) {
+            const obj = document.getElementById(id);
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = Math.floor(progress * (end - start) + start);
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+        
+        animateValue('totalCases', 0, totalCases, 1000);
+        animateValue('avgResolution', 0, avgResolution, 1000);
+        animateValue('resolvedCases', 0, resolvedCases, 1000);
+        animateValue('activeCases', 0, activeCases, 1000);
+        
+        // Initialize charts
+        const caseDistributionChart = echarts.init(document.getElementById('caseDistributionChart'));
+        caseDistributionChart.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: '{a} <br/>{b}: {c} ({d}%)'
+            },
+            legend: {
+                orient: 'horizontal',
+                bottom: 0,
+                data: caseLabels
+            },
+            series: [{
+                name: 'Case Distribution',
+                type: 'pie',
+                radius: ['40%', '70%'],
+                avoidLabelOverlap: false,
+                itemStyle: {
+                    borderRadius: 10,
+                    borderColor: '#fff',
+                    borderWidth: 2
+                },
+                label: {
+                    show: false,
+                    position: 'center'
+                },
+                emphasis: {
+                    label: {
+                        show: true,
+                        fontSize: '16',
+                        fontWeight: 'bold'
+                    }
+                },
+                labelLine: {
+                    show: false
+                },
+                data: caseLabels.map((label, index) => ({
+                    value: caseCounts[index],
+                    name: label,
+                    itemStyle: {
+                        color: ['#4361ee', '#f72585', '#f8961e', '#43aa8b', '#4cc9f0'][index]
+                    }
+                })),
+                animationType: 'scale',
+                animationEasing: 'elasticOut',
+                animationDelay: function (idx) {
+                    return Math.random() * 200;
+                }
+            }]
+        });
+        
+        const caseTrendChart = echarts.init(document.getElementById('caseTrendChart'));
+        caseTrendChart.setOption({
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'shadow'
+                }
+            },
+            legend: {
+                data: caseTrend.map(item => item.label),
+                bottom: 0
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '15%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'category',
+                data: months,
+                axisLine: {
+                    lineStyle: {
+                        color: '#ccc'
+                    }
+                }
+            },
+            yAxis: {
+                type: 'value',
+                axisLine: {
+                    lineStyle: {
+                        color: '#ccc'
+                    }
+                },
+                splitLine: {
+                    lineStyle: {
+                        color: ['#eee']
+                    }
+                }
+            },
+            series: caseTrend.map((item, index) => ({
+                name: item.label,
+                type: 'line',
+                smooth: true,
+                data: item.data,
+                symbol: 'circle',
+                symbolSize: 6,
+                itemStyle: {
+                    color: ['#4361ee', '#f72585', '#f8961e', '#43aa8b', '#4cc9f0'][index]
+                },
+                lineStyle: {
+                    width: 2
+                },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(67, 97, 238, 0.3)' },
+                        { offset: 1, color: 'rgba(67, 97, 238, 0.1)' }
+                    ])
+                },
+                animationDelay: index * 100
+            })),
+            animationEasing: 'elasticOut',
+            animationDelayUpdate: function (idx) {
+                return idx * 5;
+            }
+        });
+        
+        const resolutionRateChart = echarts.init(document.getElementById('resolutionRateChart'));
+        resolutionRateChart.setOption({
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'shadow'
+                },
+                formatter: '{b}: {c}%'
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '3%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'value',
+                min: 0,
+                max: 100,
+                axisLabel: {
+                    formatter: '{value}%'
+                },
+                axisLine: {
+                    lineStyle: {
+                        color: '#ccc'
+                    }
+                },
+                splitLine: {
+                    lineStyle: {
+                        color: ['#eee']
+                    }
+                }
+            },
+            yAxis: {
+                type: 'category',
+                data: caseLabels,
+                axisLine: {
+                    lineStyle: {
+                        color: '#ccc'
+                    }
+                }
+            },
+            series: [{
+                name: 'Resolution Rate',
+                type: 'bar',
+                data: resolutionRate.map((rate, index) => ({
+                    value: rate,
+                    itemStyle: {
+                        color: ['#4361ee', '#f72585', '#f8961e', '#43aa8b', '#4cc9f0'][index]
+                    }
+                })),
+                label: {
+                    show: true,
+                    position: 'right',
+                    formatter: '{c}%'
+                },
+                barWidth: '30%',
+                animationType: 'scale',
+                animationEasing: 'elasticOut'
+            }]
+        });
+        
+        const resolutionTimeChart = echarts.init(document.getElementById('resolutionTimeChart'));
+        resolutionTimeChart.setOption({
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'cross',
+                    label: {
+                        backgroundColor: '#6a7985'
+                    }
+                },
+                formatter: '{b}: {c} days'
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '3%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'category',
+                data: caseLabels,
+                axisLine: {
+                    lineStyle: {
+                        color: '#ccc'
+                    }
+                },
+                axisLabel: {
+                    interval: 0,
+                    rotate: 30
+                }
+            },
+            yAxis: {
+                type: 'value',
+                name: 'Days',
+                min: 0,
+                axisLine: {
+                    lineStyle: {
+                        color: '#ccc'
+                    }
+                },
+                splitLine: {
+                    lineStyle: {
+                        color: ['#eee']
+                    }
+                }
+            },
+            series: [{
+                name: 'Resolution Time',
+                type: 'bar',
+                data: avgResolutionTime.map((time, index) => ({
+                    value: time,
+                    itemStyle: {
+                        color: ['#4361ee', '#f72585', '#f8961e', '#43aa8b', '#4cc9f0'][index]
+                    }
+                })),
+                barWidth: '30%',
+                itemStyle: {
+                    borderRadius: [4, 4, 0, 0]
+                },
+                animationType: 'scale',
+                animationEasing: 'elasticOut'
+            }]
+        });
+        
+        // Initialize map
+        const map = L.map('map').setView([5.641001, -0.185499258], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Prepare heatmap data
+        const heatData = geoCases
+            .filter(c => c.latitude && c.longitude)
+            .map(c => [c.latitude, c.longitude, 1]);
+        
+        // Add heatmap layer
+        L.heatLayer(heatData, {
+            radius: 25,
+            blur: 15,
+            maxZoom: 17,
+            gradient: {0.4: 'blue', 0.6: 'cyan', 0.7: 'lime', 0.8: 'yellow', 1.0: 'red'}
+        }).addTo(map);
+        
+        // Add markers for locations with popups
+        geoCases.forEach(loc => {
+            if (loc.latitude && loc.longitude) {
+                L.circleMarker([loc.latitude, loc.longitude], {
+                    radius: 6,
+                    fillColor: "#f72585",
+                    color: "#fff",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map).bindPopup(`
+                    <div class="map-popup">
+                        <h6 class="mb-1">${loc.title || 'Unknown Case'}</h6>
+                        <p class="mb-1 small">Status: <span class="badge ${loc.status === 'Resolved' ? 'bg-success' : 'bg-warning text-dark'}">${loc.status || 'Unknown'}</span></p>
+                    </div>
+                `);
+            }
+        });
+        
+        // Fullscreen map functionality
+        const openBtn = document.getElementById('openFullscreen');
+        const closeBtn = document.getElementById('exitFullscreen');
+        const overlay = document.getElementById('fullscreenOverlay');
+        let fullscreenMap;
+        
+        openBtn.addEventListener('click', () => {
+            overlay.style.display = 'block';
+            setTimeout(() => {
+                fullscreenMap = L.map('fullscreenMap').setView(map.getCenter(), map.getZoom());
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(fullscreenMap);
+                
+                // Add heatmap to fullscreen
+                L.heatLayer(heatData, {
+                    radius: 25,
+                    blur: 15,
+                    maxZoom: 17,
+                    gradient: {0.4: 'blue', 0.6: 'cyan', 0.7: 'lime', 0.8: 'yellow', 1.0: 'red'}
+                }).addTo(fullscreenMap);
+                
+                // Add markers to fullscreen
+                geoCases.forEach(loc => {
+                    if (loc.latitude && loc.longitude) {
+                        L.circleMarker([loc.latitude, loc.longitude], {
+                            radius: 8,
+                            fillColor: "#f72585",
+                            color: "#fff",
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(fullscreenMap).bindPopup(`
+                            <div class="map-popup">
+                                <h6 class="mb-1">${loc.title || 'Unknown Case'}</h6>
+                                <p class="mb-1 small">Status: <span class="badge ${loc.status === 'Resolved' ? 'bg-success' : 'bg-warning text-dark'}">${loc.status || 'Unknown'}</span></p>
+                            </div>
+                        `);
+                    }
+                });
+                
+                fullscreenMap.invalidateSize();
+            }, 100);
+        });
+        
+        closeBtn.addEventListener('click', () => {
+            overlay.style.display = 'none';
+            if (fullscreenMap) {
+                fullscreenMap.remove();
+            }
+        });
+        
+        // Filter functionality
+        document.getElementById('applyFilters').addEventListener('click', function() {
+            // In a real implementation, this would make an AJAX call to the server
+            // with the filter parameters and update the charts with new data
+            alert('Filters would be applied here in a real implementation. This would trigger an AJAX call to fetch filtered data.');
+        });
+        
+        // Resize charts when window resizes
+        window.addEventListener('resize', function() {
+            caseDistributionChart.resize();
+            caseTrendChart.resize();
+            resolutionRateChart.resize();
+            resolutionTimeChart.resize();
+            if (fullscreenMap) {
+                fullscreenMap.invalidateSize();
+            }
+        });
+    </script>
+</body>
+</html>

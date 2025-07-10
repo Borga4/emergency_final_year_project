@@ -1,0 +1,112 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resolved Cases</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body class="bg-gray-100 p-4">
+    <h1 class="text-3xl font-bold text-center mb-6 text-green-600">Resolved Emergency Cases</h1>
+
+    <div class="flex h-screen">
+        <!-- Left Side: Resolved Cases Table -->
+        <div class="w-1/5 p-4 bg-white shadow-lg rounded-lg overflow-auto">
+            <h2 class="text-xl font-bold mb-4 text-green-600">Resolved Cases</h2>
+            <table class="w-full border-collapse border border-gray-300">
+                <thead>
+                    <tr class="bg-green-500 text-white">
+                        <th class="border px-2 py-1 text-sm">Title</th>
+                        <th class="border px-2 py-1 text-sm">Description</th>
+                        <th class="border px-2 py-1 text-sm">Picture</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for case in resolved_cases %}
+                    <tr class="bg-green-100 text-gray-700 text-sm cursor-pointer"
+                        data-case-id="{{ case.id }}"
+                        data-lat="{{ case.latitude }}"
+                        data-lng="{{ case.longitude }}">
+                        <td class="border px-2 py-1">{{ case.title }}</td>
+                        <td class="border px-2 py-1">{{ case.description }}</td>
+                        <td class="border px-2 py-1">
+                            {% if case.picture %}
+                                <img src="{{ case.picture.url }}" alt="Case Image" class="w-10 h-10 object-cover rounded-lg">
+                            {% else %}
+                                No Image
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center py-2 text-gray-600 text-sm">No resolved cases.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Right Side: Map -->
+        <div class="w-4/5 p-4">
+            <div id="map" class="w-full h-full border rounded-lg"></div>
+        </div>
+    </div>
+
+    <script>
+        var map = L.map('map').setView([5.641001, -0.185499258], 14);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        var markers = {};
+        var cases = [
+            {% for case in resolved_cases %}
+                { 
+                    "id": {{ case.id }},
+                    "lat": {{ case.latitude }}, 
+                    "lng": {{ case.longitude }}, 
+                    "title": "{{ case.title }}", 
+                    "status": "Resolved", 
+                    "image": "{% if case.picture %}{{ case.picture.url }}{% else %}/static/no-image.png{% endif %}"
+                },
+            {% endfor %}
+        ];
+
+        cases.forEach(function (caseData) {
+            var marker = L.marker([caseData.lat, caseData.lng])
+                .addTo(map)
+                .bindPopup(`
+                    <b>${caseData.title}</b><br>
+                    Status: ${caseData.status}<br>
+                    <img src="${caseData.image}" alt="Case Image" class="w-24 h-24 object-cover rounded-lg">
+                `);
+            markers[caseData.id] = marker;
+        });
+
+        if (cases.length > 0) {
+            var firstCase = cases[0];
+            map.setView([firstCase.lat, firstCase.lng]);
+        }
+
+        function zoomToCase(caseId, lat, lng) {
+            map.setView([lat, lng], 25);
+            if (markers[caseId]) {
+                markers[caseId].openPopup();
+            }
+        }
+
+        document.querySelectorAll("tbody tr").forEach(row => {
+            row.addEventListener("click", function () {
+                var caseId = this.getAttribute("data-case-id");
+                var lat = parseFloat(this.getAttribute("data-lat"));
+                var lng = parseFloat(this.getAttribute("data-lng"));
+                zoomToCase(caseId, lat, lng);
+            });
+        });
+    </script>
+</body>
+</html>
