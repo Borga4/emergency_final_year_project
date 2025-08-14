@@ -240,7 +240,16 @@
                 <div class="stat-card">
                     <div class="stat-label">Total Cases</div>
                     <div class="stat-value" id="totalCases">0</div>
-                    <div class="text-muted small">+12% from last month</div>
+                    <div class="text-muted small">
+                    {% if case_change_percent > 0 %}
+                        +{{ case_change_percent }}% from last month
+                    {% elif case_change_percent < 0 %}
+                        {{ case_change_percent }}% from last month
+                    {% else %}
+                        No change from last month
+                    {% endif %}
+                </div>
+
                 </div>
             </div>
             <div class="col-md-3 animate__animated animate__fadeInLeft animate-delay-2">
@@ -254,7 +263,7 @@
                 <div class="stat-card">
                     <div class="stat-label">Resolved Cases</div>
                     <div class="stat-value" id="resolvedCases">0</div>
-                    <div class="text-muted small">87% success rate</div>
+                    <div class="text-muted small">{{ percent_resolved }}% success rate</div>
                 </div>
             </div>
             <div class="col-md-3 animate__animated animate__fadeInLeft animate-delay-4">
@@ -641,11 +650,33 @@
         });
         
         // Initialize map
-        const map = L.map('map').setView([5.641001, -0.185499258], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-        
+      // Define map
+// Define bounds for University of Ghana, Legon
+const legonBounds = L.latLngBounds(
+    [5.6325, -0.1945], // Southwest corner
+    [5.6545, -0.1675]  // Northeast corner
+);
+
+// Create the map with zoom limits
+const map = L.map('map', {
+    maxBounds: legonBounds,  // Restrict panning
+    minZoom: 5,             // Minimum zoom in
+    maxZoom: 19              // Maximum zoom in
+});
+
+// Add OSM tiles
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+// Fit map to bounds initially
+map.fitBounds(legonBounds);
+
+// Bounce back if dragged outside
+map.on('drag', function () {
+    map.panInsideBounds(legonBounds, { animate: true });
+});
+
         // Prepare heatmap data
         const heatData = geoCases
             .filter(c => c.latitude && c.longitude)
@@ -687,7 +718,11 @@
         openBtn.addEventListener('click', () => {
             overlay.style.display = 'block';
             setTimeout(() => {
-                fullscreenMap = L.map('fullscreenMap').setView(map.getCenter(), map.getZoom());
+                fullscreenMap = L.map('fullscreenMap',{
+                    maxBounds: legonBounds,  // Restrict panning
+                    minZoom:7,             // Minimum zoom in
+                    maxZoom: 19
+                }).setView(map.getCenter(), map.getZoom());
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 }).addTo(fullscreenMap);
