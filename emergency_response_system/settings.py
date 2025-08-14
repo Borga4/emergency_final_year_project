@@ -28,6 +28,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+# LOOGIN_URL = 'login'
 
 # Application definition
 
@@ -42,7 +43,9 @@ INSTALLED_APPS = [
     "accounts",
     "allauth",
     "allauth.account",
-    'corsheaders'
+    'corsheaders',
+    'import_export'
+    'django.contrib.gis',
 ]
 
 MIDDLEWARE = [
@@ -74,6 +77,10 @@ TEMPLATES = [
     },
 ]
 
+USE_I18N = True
+USE_L10N = True
+
+
 AUTHENTICATION_BACKENDS = [
     
     'django.contrib.auth.backends.ModelBackend',
@@ -88,10 +95,23 @@ WSGI_APPLICATION = "emergency_response_system.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
+
+
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+    'default': {
+        # 'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD':os.getenv('DB_PASSWORD'),
+        'HOST':os.getenv('DB_HOST'), 
+        'PORT':os.getenv('DB_PORT'),
     }
 }
 
@@ -127,6 +147,10 @@ USE_I18N = True
 USE_TZ = True
 
 
+LOGIN_URL = 'login'  # This matches your URL name
+LOGIN_REDIRECT_URL = 'dashboard'  # Where to redirect after login
+LOGOUT_REDIRECT_URL = 'login'  # Where to redirect after logout
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
@@ -139,3 +163,5 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+GDAL_LIBRARY_PATH=r"C:\Program Files\QGIS 3.40.8\bin\gdal310.dll"

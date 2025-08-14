@@ -12,7 +12,7 @@ urlpatterns = [
     
     path('login/', login_view, name='login'),
     path('signup/', signup_view, name='signup'),
-    path('home/', index, name='home'),
+    path('', index, name='home'),
     path('pending_cases/', pending_cases_page, name='pending_cases_page'),
     path('resolved_cases/', resolved_cases_page, name='resolved_cases_page'),
     path('analysis/', analysis_view, name='analysis_view'),

@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
 
 # Create your views here.
 
@@ -10,6 +11,7 @@ from .models import Case
 from django.shortcuts import render
 from .models import Case
 
+@login_required
 def index(request):
     cases = Case.objects.all()
     resolve_cases = cases.filter(status='Resolved').count()
